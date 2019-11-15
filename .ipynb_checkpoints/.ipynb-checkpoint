@@ -1,0 +1,289 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Lecture: pre-processing and quality control with fastp\n",
+    "\n",
+    "Here we will do a demo to run fastp on a dataset I have already downloaded. The following steps comprise a typical workflow.\n",
+    "\n",
+    "1. Create a working directory for this exercise.\n",
+    "2. Locate data.\n",
+    "3. Setup _fastp_ through a container and make an alias.\n",
+    "4. Run the program on a single dataset.\n",
+    "5. Look at the html result.\n",
+    "6. Write a script to run the other datasets in a batch job (we'll do this from the terminal)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "First, let's set aside some space in the working directory. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 1: create a workspace\n",
+    "cd /scratch/summit/$USER\n",
+    "mkdir -p DSCI512_RNAseq\n",
+    "cd DSCI512_RNAseq\n",
+    "pwd"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now we're going to link a data directory to this current directory. We do this because the data is very large and will take too long for a demonstration. \n",
+    "The link will reside in the present directory and act like any other, except you won't be able to change its contents. It is __read-only.__"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# make directories to use through processing\n",
+    "# skipping 01_input - we will make that with a link below\n",
+    "mkdir 02_output\n",
+    "mkdir 03_scripts\n",
+    "mkdir 04_logs\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#link to the data directory (I have already downloaded everything)\n",
+    "ln -sv /scratch/summit/dcking@colostate.edu/DSCI512/2019/data 01_input"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# look at your directory structure\n",
+    "ls -l"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Mine looks like this:"
+   ]
+  },
+  {
+   "cell_type": "raw",
+   "metadata": {},
+   "source": [
+    "total 6578944\n",
+    "lrwxrwxrwx 1 dcking@colostate.edu dckingpgrp@colostate.edu         54 Nov 12 16:16 01_input -> /scratch/summit/dcking@colostate.edu/DSCI512/2019/data\n",
+    "drwxr-xr-x 2 dcking@colostate.edu dckingpgrp@colostate.edu       4096 Nov 12 16:16 02_output\n",
+    "drwxr-xr-x 2 dcking@colostate.edu dckingpgrp@colostate.edu       4096 Nov 12 16:16 03_scripts\n",
+    "drwxr-xr-x 2 dcking@colostate.edu dckingpgrp@colostate.edu       4096 Nov 12 16:16 04_logs\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Notice that the files are very large- many close to 2 gigabytes. Data of this size should be kept in your scratch directory (_or in this case, mine_).\n",
+    "\n",
+    "We've set up our workspace and located the data. &#10003; \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "***\n",
+    "\n",
+    "Run the following command to get a link to a graphical interface for this directory. \n",
+    "\n",
+    "## Open the file browser to you current location\n",
+    "&#8681;&#8681;&#8681;&#8681;&#8681;"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "echo https://jupyter.rc.colorado.edu/user/$USER/tree$PWD\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "&#8679;&#8679;&#8679;&#8679;&#8679;<font size=\"3\">__This link opens file browser to current directory__</font> &#8679;&#8679;&#8679;&#8679;&#8679;\n",
+    "***\n",
+    "***\n",
+    "***\n",
+    "# Running fastp\n",
+    "\n",
+    "We will run this through a singularity container:\n",
+    "\n",
+    " * Load the singularity module\n",
+    " * Test the container with the full command (long)\n",
+    " * Make an alias for the long command"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 3: load the module that works with containers\n",
+    "module load singularity\n",
+    "module list"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The following command:\n",
+    "`singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp`\n",
+    " * __singularity__ - A program that reads a container.\n",
+    " * __exec__ - verb: execute\n",
+    " * ___[path to container image]___: The container itself, called an image.\n",
+    " * __fastp__: The program you want to execute."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Step 4: Run fastp through the container without arguments- gives catelog of available flags\n",
+    "singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "__Note__: The warning <font color=orange>WARNING: Non existent 'bind path' source: '/rc_scratch'</font> is due to the configuration and is not a problem."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Make an alias for fastp\n",
+    "alias fastp='singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp'"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "You will now be able to type _fastp_ in place of the long command."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Test the alias- same output.\n",
+    "fastp"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "__The usage message tells us for paired end data:__\n",
+    "\n",
+    "`-i readfile1.fastq -I readfile2.fastq`\n",
+    "\n",
+    "`-o outputfile1.fastq -O outputfile2.fastq`\n",
+    "\n",
+    "`[options]`\n",
+    "\n",
+    "For the options:\n",
+    "\n",
+    " * __-x__: remove polyX (polyAs polyCs polyGs polyTs)\n",
+    " * __-p__: overrepresentation analysis\n",
+    " * __--thread__: We only have 1 on jupyterhub. We can use more in our script.\n",
+    " * __-h,-j__: The report filenames in html, json (javascript object notation).\n",
+    "\n",
+    "***\n",
+    "The backslashes `\\` below allow me to wrap the command onto multiple lines."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "time fastp -i 01_input/SRR5832199_1.fastq       -I 01_input/SRR5832199_2.fastq \\\n",
+    "           -o 02_output/SRR5832199_trim_1.fastq -O 02_output/SRR5832199_trim_2.fastq \\\n",
+    "           -h 02_output/SRR5832199_report.html  -j 02_output/SRR5832199_report.json\\\n",
+    "           --thread 1 \\\n",
+    "           -x -p \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "You'll see <font color=orange>WARNING: Non existent 'bind path' source: '/rc_scratch'</font> again until the output comes.\n",
+    "\n",
+    "It is running while you still see <font color=\"blue\">`In [*]`</font> with the asterisk."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Preparing and running a batch job\n",
+    "\n",
+    "Now we're going to set up the full version of this. Open your terminal emulator and log on to summit."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Bash",
+   "language": "bash",
+   "name": "bash"
+  },
+  "language_info": {
+   "codemirror_mode": "shell",
+   "file_extension": ".sh",
+   "mimetype": "text/x-sh",
+   "name": "bash"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
