@@ -1,0 +1,539 @@
+== Raw read structure
+
+A paired-end read is a PCR-amplified fragment enclosed inside adapters.
+The whole fragment is sequenced.
+
+== Raw Sequence Quality
+
+*Phred quality score* (Q) was originally developed by the program Phred
+to measure base-calling reliability from Sanger sequencing
+chromatograms.
+
+latexmath:[$Q = -10 * log_{10}(P)$] where P is the probability of
+erroneous base calling.
+
+*For example:* * Q20: latexmath:[$-10 * log_{10}(1/100) = 20$] * Q30:
+latexmath:[$-10 * log_{10}(1/1000) = 30$] * Q40:
+latexmath:[$-10 * log_{10}(1/10^4) = 40$] * Q50:
+latexmath:[$-10 * log_{10}(10^{-5}) = 50$] * Q60:
+latexmath:[$-10 * log_{10}(10^{-6}) = 60$]
+
+*Quality scoring range:*
+
+* latexmath:[$< 20$]: poor quality
+* latexmath:[$20 - 30$]: moderate quality
+* latexmath:[$> 30$]: high quality
+
+*Example fastq read*
+
+`+@SRR5832182.1 HISEQ-MFG:180:hw5f3bcxx:2:1101:1205:2195 length=101 CGCGAACAGTCCTCAAATCGGGGATCGAAAAAGGATTCGTGGAATCACAGTATTTTTATGTATAATTTCTTCCACCGAAGAGGGAGCAACAAGAGAGCGGC +SRR5832182.1 HISEQ-MFG:180:hw5f3bcxx:2:1101:1205:2195 length=101 DDDDDHHIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIGHHHIEHIIIIIIIIIIFHIIIHIIIIIHIIIIIIIIIIIIIIIIGHHIIIIIHIIHIIIIH+`
+
+Each read (in fastq format) has four lines: 1. ID 2. Base call (the
+sequence) 3. ID again for some reason (or just a plus sign) 4. Quality
+symbol for each base call
+
+== Quality symbols for Q: 32-40
+
+[cols=",,",options="header",]
+|===
+|symbol |ascii value |Q
+|A |65 |32
+|B |66 |33
+|C |67 |34
+|D |68 |35
+|E |69 |36
+|F |70 |37
+|G |71 |38
+|H |72 |39
+|I |73 |40
+|===
+
+Link for full(er) table:
+https://support.illumina.com/help/BaseSpace_OLH_009008/Content/Source/Informatics/BS/QualityScoreEncoding_swBS.htm
+
+Is latexmath:[$ascii -33$], going all the way to 126 (symbol=`~', Q=93).
+See http://www.asciitable.com/ if you’re interested in how this works.
+
+== Quality scores for a sequencing run
+
+*Li et al. Fig 1. a)* Parallel boxplot showing ``per nucleotide quality
+score.'' All reads are overlaid together, and then summarize Phred
+quality score (Y-axis) for each position of read from 5′ to 3′ end
+(X-axis). *(b)* ``per sequence quality score'' distribution. For each
+read, ``per sequence quality score'' is calculated as the average Phred
+quality score (X-axis) across all nucleotides
+
+== Nucleotide Composition and GC Content
+
+*Li et al. Fig 2. (a)* Diagram showing nucleotide composition bias at
+the beginning of reads. All reads are overlaid together, and then
+calculate nucleotide frequency (Y-axis) for each position of read
+(X-axis). Four nucleotides were indicated using different colors. *(b)*
+``per sequence GC content'' distribution. This normal distribution
+should be centered at the GC content of your coding genome (exons only).
+A shift represents a bias or contamination.
+
+== fastp
+
+*Reference*: https://watermark.silverchair.com/bty560.pdf fastp: an
+ultra-fast all-in-one FASTQ preprocessor *Bioinformatics,* 34, 2018,
+i884–i890
+
+*Today’s reading*:
+http://rna.colostate.edu/2019/lib/exe/fetch.php?media=assignments:li_etal_qualitycontrol_2015.pdf
+
+=== Benefits of fastp over other tools
+
+* Trimming and Quality in one
+* Faster implementation
+* Automatically finds adapters
+* Interactive HTML output
+
+== fastp reports
+
+=== Adapter identification
+
+…
+
+*_Courtesy of Rob Williams_*
+
+=== PCR duplication
+
+*_Courtesy of Rob Williams_*
+
+=== Base content filtering
+
+*_fastp paper figure 3_*
+
+'''''
+
+== Let’s process some data
+
+=== Where are we right now?
+
+* We’re already on summit
+* We’re already running a job (a 12 hour interactive job that we
+_spawned_).
+* That means we’re on a compute node, and it’s OK to run a full job
+(we’re usually on a login or compile node).
+* Counts against fairshare. So we need to stop the server when we’re
+done. (See the bottom of the notebook and/or the wiki page).
+* We’re in the jupyterhub web-based interface instead of the basic
+terminal interface.
+** File menu, Edit menu, etc. not part of your OS, but inside your web
+browser.
+** Open tabs are on the right - these are notebooks, consoles, and other
+(including terminals).
+** Icons below files menu:
+*** Plus sign - Launcher
+*** Dark Folder with light plus sign - new Folder
+*** Up-arrow with underline - upload file
+*** Circular arrow - refresh file list
+** next row of icons: current location:
+`+[folder icon]/.../parent directory/current directory+`
+** file browser - *Name* *Last Modified*
+
+=== Workflow
+
+[arabic]
+. Create a working directory for this exercise.
+. Link to data (I already downloaded it - very large).
+. Set up _fastp_ through a container and make an alias.
+. Run the program on a single dataset. Inspect.
+. Write a script to run the other datasets in a batch job (we’ll do this
+from the terminal)
+
+First, let’s set aside some space in the working directory.
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Step 1: create a workspace
+cd /scratch/summit/$USER
+mkdir DSCI512_RNAseq_19_19_11
+cd DSCI512_RNAseq_19_19_11
+----
+
+
++*In[ ]:*+
+[source, bash]
+----
+pwd
+----
+
+In the upper lefthand corner, go to File -> `+Open from path...+` and
+paste in the output from the previous command.
+
+This will open the file browser to the current location. *** Now we’re
+going to link a data directory to this current directory. We do this
+because the data is very large and will take too long for a
+demonstration. The link will reside in the present directory and act
+like any other, except you won’t be able to change its contents. It is
+*read-only.*
+
+
++*In[ ]:*+
+[source, bash]
+----
+# make directories to use through processing
+# skipping 01_input - we will make that with a link below
+mkdir 02_output
+mkdir 03_scripts
+mkdir 04_logs
+----
+
+
++*In[ ]:*+
+[source, bash]
+----
+#link to the data directory (I have already downloaded everything)
+ln -sv /scratch/summit/dcking@colostate.edu/DSCI512/2019/data 01_input
+----
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Look at your directory structure.
+ls -lh
+----
+
+🔎 Navigate around the file browser on the left * doubleclick a link to
+descend * go to a parent directory by clicking the name after the 3 dots
+in the location field:
+`+folder_icon/.../parent_directory/current_directory+`
+
+== Breakdown of data in 01_input/
+
+'''''
+
+*Experimental design*
+
+[cols=",,",options="header",]
+|===
+|IDs (3 reps each) |Temperature |Food Source
+|SRR5832182-SRR5832184 |15°C |_E. coli_
+|SRR5832185-SRR5832187 |20°C |_E. coli_
+|SRR5832188-SRR5832190 |25°C |_E. coli_
+|SRR5832191-SRR5832193 |15°C |_B. subtilis_
+|SRR5832194-SRR5832196 |20°C |_B. subtilis_
+|SRR5832197-SRR5832199 |25°C |_B. subtilis_
+|===
+
+'''''
+
+* 6 conditions
+* 3 reps each
+* Each replicate is paired-end. Thus, _SRR5832182_ is represented by:
+** SRR5832182_1.fastq - ``left'' end reads.
+** SRR5832182_2.fastq - ``right'' end reads.
+* 36 total files
+
+== Running fastp
+
+We will run this through a singularity container:
+
+* Load the singularity module
+* Test the container with the full command (long)
+* Make an alias for the long command
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Step 3: load the module that works with containers
+module load singularity
+module list
+----
+
+The following command:
+`+singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp+`
+* *singularity* - A program that reads a container. * *exec* - verb:
+execute * *_[path to container image]_*: The container itself, called an
+image. * *fastp*: The program you want to execute.
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Step 4: Run fastp through the container without arguments- gives catalog of available flags
+singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp
+----
+
+*_This is OK —>_* WARNING: Non existent `bind path' source:
+`/rc_scratch' <— *_It’s just part of the configuration._*
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Make a shortcut for fastp
+fastp='singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp'
+----
+
+You will now be able to type _fastp_ in place of the long command.
+
+
++*In[ ]:*+
+[source, bash]
+----
+# Test the alias- same output.
+$fastp
+----
+
+
++*In[ ]:*+
+[source, bash]
+----
+wc -l 01_input/SRR5832182_1.fastq 01_input/SRR5832182_2.fastq
+----
+
+== fastp command usage
+
+*The usage message tells us for _paired end_ data:*
+
+`+-i readfile_1.fastq -I readfile_2.fastq+`
+
+`+-o outputfile_1.fastq -O outputfile_2.fastq+`
+
+`+[options]+`
+
+For the options:
+
+* *-x*: remove polyX (polyAs polyCs polyGs polyTs)
+* *-p*: overrepresentation analysis
+* *–thread*: We only have 1 on jupyterhub. We can use more in our
+script.
+* *-h,-j*: The report filenames in html, json (javascript object
+notation).
+
+To explicitly specify adapter sequences, see this part of the usage
+message:
+
+....
+-a, --adapter_sequence               the adapter for read1. For SE data, if not specified, the adapter will be auto-detected. For PE data, this is used if R1/R2 are found not overlapped. (string [=auto])
+      --adapter_sequence_r2            the adapter for read2 (PE data only). This is used if R1/R2 are found not overlapped. If not specified, it will be the same as <adapter_sequence> (string [=auto])
+      --adapter_fasta                  specify a FASTA file to trim both read1 and read2 (if PE) by all the sequences in this FASTA file (string [=])
+      --detect_adapter_for_pe          by default, the auto-detection for adapter is for SE data input only, turn on this option to enable it for PE data.
+....
+
+'''''
+
+=== Command version 1:
+
+
++*In[ ]:*+
+[source, bash]
+----
+$fastp -i 01_input/SRR5832199_1.fastq       -I 01_input/SRR5832199_2.fastq \
+           -o 02_output/SRR5832199_trim_1.fastq -O 02_output/SRR5832199_trim_2.fastq \
+           -h 02_output/SRR5832199_report.html  -j 02_output/SRR5832199_report.json\
+           --thread 1 \
+           -g -x -p 
+
+----
+
+*_This is OK —>_* WARNING: Non existent `bind path' source:
+`/rc_scratch' <— *_It’s just part of the configuration._*
+
+⏳ *Still waiting?* It is running while you still see `+[*]+` with the
+asterisk. Give it about a minute.
+
+== Notice the terminal output
+
+* Basic statistics - covered in depth by the html output
+* Amount of time it ran - this will help us scale up in the batch
+script.
+
+== Check the output
+
+Navigate to *02_output* in the file browser and double-click
+_SRR5832199_report.html_
+
+== Run a different file
+
+Now if we want to process a different expirement, we have to *_change
+our arguments in 6 places!!!_*
+
+Let’s use a variable to make it easier to re-run the program on new
+data.
+
+== Command version 2:
+
+
++*In[ ]:*+
+[source, bash]
+----
+SRRID=SRR5832198
+$fastp -i 01_input/${SRRID}_1.fastq       -I 01_input/${SRRID}_2.fastq \
+           -o 02_output/${SRRID}_trim_1.fastq -O 02_output/${SRRID}_trim_2.fastq \
+           -h 02_output/${SRRID}_report.html  -j 02_output/${SRRID}_report.json\
+           --thread 1 \
+           -g -x -p 
+
+----
+
+Modify the value of `+SRRID+` to run the command on another dataset.
+
+== Step 5. Scripting and running a batch job
+
+Now we’re going to set up the full version of this.
+
+[arabic]
+. Go back to your file browser and click New->Terminal. This will open a
+web-based terminal in a new browser tab.
+. Do `+cd /scratch/summit/$USER/DSCI512_RNAseq_19_19_11+`
+. Using _nano_, copy the template script below into a new file called
+`+fastp.sbatch+`.
+. You will submit the job using
+`+sbatch --reservation=csuhpc_nov19 fastp.sbatch+`
+. You can check your job status with: `+squeue -u $USER+` and/or
+`+sacct+`
+
+== A template SBATCH script
+
+[Not a code cell. Paste into _nano_ and modify] ***
+
+[source,bash]
+----
+#!/usr/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=6
+#SBATCH --time=0:10:00
+#SBATCH --qos=normal
+#SBATCH --partition=shas
+#SBATCH --output=04_output/fastp.%j.out
+
+
+# 1) Load module
+
+# 2) Make shortcut
+
+# 3) run the command in a loop for a set of files
+SRRIDs="SRR5832182 SRR5832183"
+
+for SRRID in $SRRIDs
+do
+    # paste Command 2 from above
+done
+----
+
+'''''
+
+== My finished SBATCH script
+
+{empty}[Not a code cell. Paste into _nano_ and modify]
+
+'''''
+
+[source,bash]
+----
+#!/usr/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=6
+#SBATCH --time=0:10:00
+#SBATCH --qos=normal
+#SBATCH --partition=shas
+#SBATCH --output=04_output/fastp.%j.out
+
+# 1) Load module:
+module load singularity
+
+# 2) Make shortcut
+fastp='singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp'
+
+# 3) run the command in a loop for a set of files
+SRRIDs="SRR5832182 SRR5832183"
+
+for SRRID in $SRRIDs
+do
+    $fastp -i 01_input/${SRRID}_1.fastq       -I 01_input/${SRRID}_2.fastq \
+           -o 02_output/${SRRID}_trim_1.fastq -O 02_output/${SRRID}_trim_2.fastq \
+           -h 02_output/${SRRID}_report.html  -j 02_output/${SRRID}_report.json\
+           --thread ${SLURM_NTASKS} \
+           -g -x -p  
+done
+----
+
+'''''
+
+== My ARRAY SBATCH script
+
+{empty}[Not a code cell. Paste into _nano_ and modify]
+
+SLURM will submit these jobs in parallel, and so I requested fewer
+resources per job. You just have to make sure to match the array
+parameter to the way the files are named.
+
+They are SRR5832182 through SRR5832199. So I’ll set the array to go from
+82 to 99, and just attach it to the rest.
+
+Run like:
+
+`+sbatch --reservation=csuhpc_nov19 -a 82-99 fastp_array.sbatch+`
+
+'''''
+
+[source,bash]
+----
+#!/usr/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --time=0:03:00
+#SBATCH --qos=normal
+#SBATCH --partition=shas
+
+# run like
+# sbatch -a 82-99 fastp_array.sbatch
+
+# 1) setup:
+#  a) Load modules
+#  b) make alias
+module load singularity
+
+# 'alias' doesn't work in scripts. Here's an alternative syntax to 'alias':
+fastp='singularity exec /projects/dcking@colostate.edu/containers/Summit_RNAseq_container.sif fastp'
+# use like:
+#  $fastp arg1 arg2 ...
+
+
+# 3) Figure out the file root from the job array id
+# This script must be run like:
+#  sbatch --array=82-99 fastp_array.sbatch
+# in order for the IDs to match up to the filenames properly.
+
+SRRID="SRR58321${SLURM_ARRAY_TASK_ID}"
+
+$fastp -i 01_input/${SRRID}_1.fastq -I 01_input/${SRRID}_2.fastq \
+    -o 02_output/${SRRID}_trim_1.fastq   -O 02_output/${SRRID}_trim_2.fastq \
+    -h 02_output/${SRRID}_report.html    -j 02_output/${SRRID}_report.json\
+    --thread ${SLURM_NTASKS} \
+    -g -x -p  
+----
+
+'''''
+
+== Finishing up
+
+=== Some notes about today’s Summit session
+
+[arabic]
+. The reservation argument only works today during class. Omit it for
+your own work.
+. All work on the scratch volume, including my data download, will
+expire after 90 days. If you want to save it, *copy it to your projects
+directory*, `+/projects/$USER+`, *not your home directory!!!*. You will
+immediately fill up your quota and can cause major issues.
+
+=== Logging off
+
+[arabic]
+. Stop the running notebook and terminal
+. Shut down the server session (the interactive session).
+. Log out
+. Click on the *_stop button_* on the left (light grey square inside
+dark gray circle), hit the X’s next to the listed things.
+. Go to File->Hub Control Panel. Click the red button ``Stop my
+server''.
+. Click the *_Logout button_* on the same page.
